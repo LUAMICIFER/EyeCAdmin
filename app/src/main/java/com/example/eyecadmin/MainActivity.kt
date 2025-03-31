@@ -12,6 +12,7 @@ import com.example.eyecadmin.ui.theme.EyeCAdminTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DatabaseOperations.initialize(this)
         setContent {
             EyeCAdminTheme {
                 val navController = rememberNavController()

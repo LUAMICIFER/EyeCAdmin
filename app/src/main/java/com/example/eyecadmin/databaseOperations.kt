@@ -1,31 +1,70 @@
 package com.example.eyecadmin
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
+// DatabaseOperations.kt
+@SuppressLint("StaticFieldLeak")
 object DatabaseOperations {
     private val db = FirebaseFirestore.getInstance()
-    fun addMovie(context : Context, movieId: String, title: String, genres: List<String>, tags: List<String>, link: String, thumbnailLink: String) {
-        val movie = hashMapOf(
-            "movieid" to movieId,
-            "title" to title,
-            "genres" to genres,
-            "tags" to tags,
-            "link" to link,
-            "thumbnaillink" to thumbnailLink
-        )
+    private var context: Context? = null
 
-        db.collection("movies").document(movieId)
-            .set(movie)
+    // Call this once when your app starts (in your Application class or MainActivity)
+    fun initialize(context: Context) {
+        this.context = context.applicationContext
+    }
+
+    // Regular function (not suspend) that handles its own coroutine
+    fun addMovie(movie: Movie, onComplete: (Boolean) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                db.collection("movies").document(movie.imdbId)
+                    .set(movie)
+                    .await()
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Movie added!", Toast.LENGTH_SHORT).show()
+                    onComplete(true)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    onComplete(false)
+                }
+            }
+        }
+    }
+
+    fun addSeries(context: Context, series: Series) {
+        db.collection("series").document(series.imdbId)
+            .set(series)
             .addOnSuccessListener {
-                Toast.makeText(context, "Movie added successfully!", Toast.LENGTH_SHORT).show()
-                Log.d("Firestore", "Movie added successfully!")
+                Toast.makeText(context, "Series added!", Toast.LENGTH_SHORT).show()
             }
             .addOnFailureListener { e ->
-                Log.e("Firestore", "Error adding movie", e)
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    fun addEpisode(context: Context, episode: Episode) {
+        val episodeId = "S${episode.seasonNumber}E${episode.episodeNumber}"
+        db.collection("series").document(episode.seriesId)
+            .collection("episodes").document(episodeId)
+            .set(episode)
+            .addOnSuccessListener {
+                Toast.makeText(context, "Episode added!", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 }
